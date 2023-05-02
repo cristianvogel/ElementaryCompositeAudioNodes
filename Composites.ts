@@ -42,6 +42,36 @@ export function detunedSaws(
     return createNode(_dualSaw, props, [frequency]);
 }
 
+
+/** 
+ * @name stereoizeParam 
+ * @description Cast a number to StereoSignal type
+*/
+
+export function stereoizeParam(signal: number): StereoSignal {
+    const toSignal = el.const({ key: 'stereoize', value: signal })
+    return { left: toSignal, right: toSignal };
+}
+
+/** 
+ * @name stereoizeSignal
+ * @description Cast a single Signal to StereoSignal type
+ */
+export function stereoizeSignal(signal: Signal): StereoSignal {
+    return { left: signal, right: signal };
+}
+
+/**
+ * @name numberToSignal
+ * @description Cast a number to constant Signal
+ * 
+ */
+export function numberToConstant(signal: number, key?: string): Signal {
+    const K = key ? key : Utils.generateRandomKey();
+    return el.const({ key, value: signal });
+}
+
+
 /**
  * @name attenuate
  * @description Attenuate by another a level signal, with smoothing true by default
@@ -71,13 +101,13 @@ export function attenuate(
 
 /**
  * @name progressCounter
- * @description Implements a parametised counter as an audio rate signal, with the side effect of 
- * emitting a snapshot of a normalised progress value emitted at a specified rate. 
+ * @description Implements a parametised counter as an audio rate signal, 
+ * with the side effect of emitting a snapshot of a normalised progress value emitted at a specified rate. 
  * This is an audio rate control signal, therefore it will also emit DC when rendered. 
- * One strategy is to render it with a secondary Elementary core, which is not connected to the audio output, 
- * and then use the snapshot to drive a UI progress bar or anything else code wise. 
- * The advantage of this approach is that the progress signal can be further modified by signal processing, 
- * like smoothing it and so on. 
+ * One strategy is to render it with a secondary Elementary core, 
+ * which is not connected to the audio output, and then use the snapshot to drive 
+ * a UI progress bar or anything else code wise. The advantage of this approach is that
+ * the progress signal can be further modified by signal processing, like smoothing and so on. 
  
  * @param props { run, totalDurMs, rate, startOffset }
  * @param run [ signal or number ] :: run or pause the counter
@@ -119,13 +149,12 @@ export function progress(props: {
  */
 
 function _clippedHann({ props, children }: SignalCompositeArgs): Signal {
-    const index = children[0];
+    let index: number | Signal = children[0];
+    if (!isNode(index)) { index = numberToConstant(index as unknown as number); }
     const gain = props.gain ? props.gain : one;
     return resolve(
-        el.mul(
-            gain,
-            el.hann(index)
-        ))
+        clipTo01({ prescale: gain, fullRangeInput: false }, resolve(el.hann(index)))
+    )
 }
 
 export function clippedHann(
@@ -141,22 +170,24 @@ export function clippedHann(
 
 /**
  * @name clipTo01
- * @description Clip a full range signal to the range [0, 1] with optional pre-scaling
- * @param signal [signal] :: expects full range [-1,1] 
+ * @description Clip a signal to the range [0, 1] with optional pre-scaling
+ * @param signal expects full range [-1,1] signal
  */
 
 function _clipTo01({ props, children }: SignalCompositeArgs): Signal {
+    const input = children[0];
     const prescale: number | Signal = props.prescale ? props.prescale : one;
-    const input = el.mul(prescale, children[0]) as Signal;
-    const scaleAndOffset = fullRangeTo01(input) as Signal;
+    const scaleAndOffset = props.fullRangeInput ? fullRangeTo01(input) as Signal : input;
+    const final = el.mul(prescale, scaleAndOffset) as Signal;
     return resolve(
-        el.min(0, el.max(1, scaleAndOffset))
+        el.max(0, el.min(1, final))
     )
 }
 
 export function clipTo01(
     props: {
-        prescale?: number | Signal;
+        prescale?: number | Signal,
+        fullRangeInput?: boolean;
     },
     signal: Signal): Signal {
     return createNode(_clipTo01, props, [signal]);
@@ -165,11 +196,12 @@ export function clipTo01(
 /**
  * @name fullRangeTo01
  * @description Convert a full range signal to the range [0, 1]
- * @param signal [signal] :: expects full range [-1,1] signal
+ * @param signal expects full range [-1,1] signal
  */
 
 function _fullRangeTo01({ children }: SignalCompositeArgs): Signal {
     const input = children[0];
+
     return resolve(
         el.add(half, el.mul(half, input))
     )
