@@ -71,7 +71,13 @@ export function attenuate(
 
 /**
  * @name progressCounter
- * @description Implements a parametised counter as an audio rate signal, with the side effect of emitting a snapshot of a normalised progress value emitted at a specified rate. This is an audio rate control signal, therefore it will also emit DC when rendered. One strategy is to render it with a secondary Elementary core, which is not connected to the audio output, and then use the snapshot to drive a UI progress bar or anything else code wise. The advantage of this approach is that the progress signal can be further modified by signal processing, like smoothing and so on. 
+ * @description Implements a parametised counter as an audio rate signal, with the side effect of 
+ * emitting a snapshot of a normalised progress value emitted at a specified rate. 
+ * This is an audio rate control signal, therefore it will also emit DC when rendered. 
+ * One strategy is to render it with a secondary Elementary core, which is not connected to the audio output, 
+ * and then use the snapshot to drive a UI progress bar or anything else code wise. 
+ * The advantage of this approach is that the progress signal can be further modified by signal processing, 
+ * like smoothing it and so on. 
  
  * @param props { run, totalDurMs, rate, startOffset }
  * @param run [ signal or number ] :: run or pause the counter
